@@ -1,13 +1,28 @@
 # -*- coding:utf-8; mode:ruby; -*-
 
-#require 'cgi'
-require 'ruby-graphviz'
+['open3', 'win32/open3'].each do |lib|
+  begin
+    require lib
+    break
+  rescue LoadError
+  end
+end
 
 module Jekyll
   class GraphvizBlock < Liquid::Block
 
     DIV_CLASS_ATTR = 'graphviz-wrapper'
-    DEFAULT_GRAPH_NAME = "Graphviz"
+    DEFAULT_GRAPH_NAME = 'Graphviz'
+    DOT_OPTS = '-Tsvg'
+    DOT_EXEC = 'dot'
+    DOT_EXTS = (ENV['PATHEXT'] || '.exe;.bat;.com').split(";")
+    DOT_EXTS.unshift ''
+    DOT_PATH = ENV['PATH'].split(File::PATH_SEPARATOR)
+      .map{|a|File.join a, DOT_EXEC}
+      .map{|a|DOT_EXTS.map{|ex| a+ex}}.flatten
+      .find{|c|File.executable_real? c}
+    raise "not found a executable file: #{DOT_EXEC}" if DOT_PATH.nil?
+    DOT_CMD = "#{DOT_PATH} #{DOT_OPTS}"
 
     def initialize(tag_name, markup, tokens)
       super
@@ -33,7 +48,8 @@ module Jekyll
 
     def render_graphviz(code)
       @src = code
-      filter_for_inline_svg GraphViz.parse_string(code).output(:svg => String)
+      svg = generate_svg code
+      filter_for_inline_svg svg
     end
 
     def filter_for_inline_svg(code)
@@ -42,7 +58,25 @@ module Jekyll
       code = add_desc_attrs code
       code = insert_desc_elements code
       code = wrap_with_div code
-      return code
+      code
+    end
+
+    def generate_svg code
+      Open3.popen3( DOT_CMD ) do |stdin, stdout, stderr|
+        stdout.binmode
+        stdin.print code
+        stdin.close
+
+        err = stderr.read
+        if not (err.nil? || err.strip.empty?)
+          raise "Error from #{cmd}:\n#{errors}"
+        end
+
+        svg = stdout.read
+        svg.force_encoding 'UTF-8'
+
+        return svg
+      end
     end
 
     def remove_declarations(svg)
@@ -62,8 +96,8 @@ module Jekyll
     end
 
     def insert_desc_elements(svg)
-      inserted_elements = %[<title>#{CGI::escapeHTML @title}</title>\n] +
-        %[<desc>#{CGI::escapeHTML @src}</desc>\n]
+      inserted_elements =  %[<title>#{CGI::escapeHTML @title}</title>\n]
+      inserted_elements << %[<desc>#{CGI::escapeHTML @src}</desc>\n]
       svg.sub!(/(<svg [^>]*>)/, "\\1\n#{inserted_elements}")
 
       return svg

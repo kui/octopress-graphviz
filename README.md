@@ -39,8 +39,5 @@ Installation
 
 In your terminal:
 
-	cd your_octopress
-	echo "gem 'ruby-graphviz', '~> 1.0.8'" > Gemfile
-	bundle install
-	cd plugins
+	cd <your_octopress>/plugins
 	wget https://raw.github.com/kui/octopress-graphviz/master/graphviz_block.rb
