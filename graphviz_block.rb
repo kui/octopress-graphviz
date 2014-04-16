@@ -69,7 +69,7 @@ module Jekyll
 
         err = stderr.read
         if not (err.nil? || err.strip.empty?)
-          raise "Error from #{cmd}:\n#{errors}"
+          raise "Error from #{DOT_CMD}:\n#{err}"
         end
 
         svg = stdout.read
